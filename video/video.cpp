@@ -342,5 +342,16 @@ int main(int argc, char* argv[])
 		waitKey(30);
 	}
 
+	n = write(sock,"f\n",2);
+	if (n < 0) cout<<"ERROR writing to socket";
+	n = write(sock,"r\n",2);
+	if (n < 0) cout<<"ERROR writing to socket";
+	n = write(sock,"f\n",2);
+	if (n < 0) cout<<"ERROR writing to socket";
+	n = write(sock,"f\n",2);
+	if (n < 0) cout<<"ERROR writing to socket";
+	n = write(sock,"l\n",2);
+	if (n < 0) cout<<"ERROR writing to socket";
+
 	return 0;
 }
