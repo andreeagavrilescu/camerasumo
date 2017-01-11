@@ -33,8 +33,8 @@ int S_MAX = 256;
 int V_MIN = 0;
 int V_MAX = 256;
 
-int red_x;
-int red_y;
+// int red_x;
+// int red_y;
 
 
 // Structura in care retinem codurile RGB ale unei culori
@@ -274,16 +274,16 @@ int main(int argc, char* argv[])
 	//matrix storage for binary threshold image
 	Mat threshold[10];
 	//x and y values for the location of the object
-	int x = 0, y = 0;
-	int x1= 0, y1= 0;
+	// int x = 0, y = 0;
+	// int x1= 0, y1= 0;
 	//create slider bars for RGB filtering
 	// createTrackbars();
 	waitKey(10);
 	//video capture object to acquire webcam feed
 	VideoCapture capture;
 	//open capture object at location zero (default location for webcam)
-    // capture.open("rtmp://172.16.254.63/live/live");
-    capture.open("rtmp://127.0.0.1/tdr/tdr");
+    capture.open("rtmp://172.16.254.63/live/live");
+    // capture.open(0);
 
 	//set height and width of capture frame
 	capture.set(CV_CAP_PROP_FRAME_WIDTH, FRAME_WIDTH);
