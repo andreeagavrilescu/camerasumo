@@ -8,10 +8,12 @@
 #include <unistd.h>
 #include <netdb.h>
 #include <stdio.h>
+#include <fstream>
 //#include <opencv2\highgui.h>
 #include "opencv2/highgui/highgui.hpp"
 //#include <opencv2\cv.h>
 #include "opencv2/opencv.hpp"
+#include "math.h"
 
 using namespace std;
 using namespace cv;
@@ -22,7 +24,7 @@ using namespace cv;
 
 //char dir='s';
 
-//initial min and max HSV filter values.
+//initial min and max RGB filter values.
 //these will be changed using trackbars
 int H_MIN = 0;
 int H_MAX = 256;
@@ -35,7 +37,7 @@ int red_x;
 int red_y;
 
 
-// Structura in care retinem codurile HSV ale unei culori
+// Structura in care retinem codurile RGB ale unei culori
 typedef struct Figure
 {
 	int h_MIN, h_MAX, s_MIN, s_MAX , v_MIN, v_MAX;
@@ -56,7 +58,7 @@ const int MIN_OBJECT_AREA = 20 * 20;
 const int MAX_OBJECT_AREA = FRAME_HEIGHT*FRAME_WIDTH / 1.5;
 //names that will appear at the top of each window
 const std::string windowName = "Original Image";
-const std::string windowName1 = "HSV Image";
+const std::string windowName1 = "RGB Image";
 const std::string windowName2 = "Thresholded Image";
 const std::string windowName3 = "After Morphological Operations";
 const std::string trackbarWindowName = "Trackbars";
@@ -181,7 +183,7 @@ void trackFilteredObject(int &x, int &y, Mat threshold, Mat &cameraFeed) {
 				//if the area is the same as the 3/2 of the image size, probably just a bad filter
 				//we only want the object with the largest area so we safe a reference area each
 				//iteration and compare it to the area in the next iteration.
-				if (area > MIN_OBJECT_AREA && area<MAX_OBJECT_AREA && area>refArea) {
+				if (area > MIN_OBJECT_AREA && area>refArea) {
 					x = moment.m10 / area;
 					y = moment.m01 / area;
 					objectFound = true;
@@ -244,12 +246,19 @@ int socket(){
 
 }
 
+int values[10][10];
+char names[10][100];
+int coords[10][4];
 
+void loadValues();
+double panta(int x1, int y1, int x2, int y2);
+void attack(double angle);
 
 int main(int argc, char* argv[])
 {
 
-
+	loadValues();
+	// return 1;
 
 	//some boolean variables for different functionality within this
 	//program
@@ -260,20 +269,21 @@ int main(int argc, char* argv[])
 	Point p;
 	//Matrix to store each frame of the webcam feed
 	Mat cameraFeed;
-	//matrix storage for HSV image
-	Mat HSV;
+	//matrix storage for RGB image
+	Mat RGB;
 	//matrix storage for binary threshold image
-	Mat threshold;
+	Mat threshold[10];
 	//x and y values for the location of the object
 	int x = 0, y = 0;
 	int x1= 0, y1= 0;
-	//create slider bars for HSV filtering
-	createTrackbars();
+	//create slider bars for RGB filtering
+	// createTrackbars();
 	waitKey(10);
 	//video capture object to acquire webcam feed
 	VideoCapture capture;
 	//open capture object at location zero (default location for webcam)
-  capture.open("rtmp://172.16.254.63/live/live");
+    // capture.open("rtmp://172.16.254.63/live/live");
+    capture.open("rtmp://127.0.0.1/tdr/tdr");
 
 	//set height and width of capture frame
 	capture.set(CV_CAP_PROP_FRAME_WIDTH, FRAME_WIDTH);
@@ -292,66 +302,111 @@ int main(int argc, char* argv[])
 		if(cameraFeed.empty())
 			return 1;
 
-		//convert frame from BGR to HSV colorspace
-		cvtColor(cameraFeed, HSV, COLOR_BGR2HSV);
-		//filter HSV image between values and store filtered image to
+		//convert frame from BGR to RGB colorspace
+		cvtColor(cameraFeed, RGB, COLOR_BGR2RGB);
+		//filter RGB image between values and store filtered image to
 		//threshold matrix
-		inRange(HSV, Scalar(0, 164, 209), Scalar(26, 256, 256), threshold);
-		//perform morphological operations on thresholded image to eliminate noise
-		//and emphasize the filtered object(s)
-		if (useMorphOps)
-			morphOps(threshold);
-		//pass in thresholded frame to our object tracking function
-		//this function will return the x and y coordinates of the
-		//filtered object
-		if (trackObjects)
-			trackFilteredObject(x, y, threshold, cameraFeed);
-		//alg(x,y,x1,y1);
-		if(x!=red_x){
-			bzero(buffer,256);
-			sprintf(buffer, BUFF);
-			printf("Buffer: %s\n", buffer);
-			n=write(sock,buffer,strlen(buffer));
-			if(n<0){
-				exit(5);
-			}
-			usleep(3500);
+
+
+		for(int i = 0; i < 4; i ++){
+
+
+			inRange(RGB, Scalar(values[i][0], values[i][2], values[i][4]),
+				Scalar(values[i][1], values[i][3], values[i][5]), threshold[i]);
+			//perform morphological operations on thresholded image to eliminate noise
+			//and emphasize the filtered object(s)
+			if (useMorphOps)
+				morphOps(threshold[i]);
+			//pass in thresholded frame to our object tracking function
+			//this function will return the x and y coordinates of the
+			//filtered object
+			if (trackObjects)
+				trackFilteredObject(coords[i][0], coords[i][1], threshold[i], cameraFeed);
+
+
+
+			// cout<<names[i]<<" "<<coords[i][0]<<" "<<coords[i][1]<<endl;
+
+			imshow(names[i], threshold[i]);
 		}
-		red_x=x;
-		red_y=y;
-
-		inRange(HSV, Scalar(91, 121, 107), Scalar(142, 256, 256), threshold);
-		//perform morphological operations on thresholded image to eliminate noise
-		//and emphasize the filtered object(s)
-		if (useMorphOps)
-			morphOps(threshold);
-		//pass in thresholded frame to our object tracking function
-		//this function will return the x and y coordinates of the
-		//filtered object
-		if (trackObjects)
-			trackFilteredObject(x1, y1, threshold, cameraFeed);
-
-
+		double myAngle = panta(coords[1][0],coords[1][1],coords[3][0],coords[3][1]);
+		double angleToEnemy = panta(coords[1][0],coords[1][1],coords[2][0],coords[2][1]);
+		cout<<myAngle<<" e panta"<<endl;
+		cout<<angleToEnemy<<" e panta a doua"<<endl;
+		double rotation = myAngle - angleToEnemy;
+		cout<<rotation<<" rotation"<<endl;
+		attack(rotation);
 		//show frames
-		imshow(windowName2, threshold);
-		imshow(windowName, cameraFeed);
-		imshow(windowName1, HSV);
-		setMouseCallback("Original Image", on_mouse, &p);
+		// imshow(windowName2, threshold);
+		// imshow(windowName, cameraFeed);
+		imshow("original image", cameraFeed);
+		// setMouseCallback("Original Image", on_mouse, &p);
 		//delay 30ms so that screen can refresh.
 		//image will not appear without this waitKey() command
 		waitKey(30);
 	}
 
-	n = write(sock,"f\n",2);
-	if (n < 0) cout<<"ERROR writing to socket";
-	n = write(sock,"r\n",2);
-	if (n < 0) cout<<"ERROR writing to socket";
-	n = write(sock,"f\n",2);
-	if (n < 0) cout<<"ERROR writing to socket";
-	n = write(sock,"f\n",2);
-	if (n < 0) cout<<"ERROR writing to socket";
-	n = write(sock,"l\n",2);
-	if (n < 0) cout<<"ERROR writing to socket";
 
 	return 0;
+}
+
+
+void loadValues() {
+	ifstream fin;
+	fin.open("config.txt");
+
+	for(int i = 0; i < 5; i ++) {
+		fin>>names[i];
+		for(int j = 0; j < 6; j++){
+			fin>>values[i][j];
+		}
+	}
+
+
+	// for(int i = 0; i < 5; i ++) {
+	// 	cout<<"\n"<<names[i]<<" ";
+	// 	for(int j = 0; j < 6; j++){
+	// 		cout<<values[i][j]<<" " ;
+	// 	}
+	// }
+}
+
+double panta(int x1, int y1, int x2, int y2) {
+
+	int x=x2-x1;
+	int y=y2-y1;
+
+	double s = atan(1.0*x/y) / M_PI * 180;
+	if(x > 0) {
+		if(y > 0) {
+			s = -180+abs(s);
+		}
+		else {
+			s = -abs(s);
+		}
+	}
+	else {
+		if(y> 0) {
+			s = 180-abs(s);
+		}
+		else {
+		}
+	}
+
+	return s;
+}
+
+void attack(double angle){
+	char action;
+	if (angle<10 && angle>-10)
+		action='f';
+	else if(angle<-10)
+		action='l';
+	else
+		action='r';
+
+	cout<<action<<" go to"<<endl;
+
+	write(sock,&action,1);
+
 }
